@@ -1,0 +1,15 @@
+---
+
+# Playbook settings
+install_dev_tools: false
+update_hostname: false
+update_time_config: false
+restart_server: false
+
+# Set a hostname
+hostname: localhost
+
+# Proxy settings
+use_proxy: false
+proxy_port: 123
+proxy_hostname: foo.bar

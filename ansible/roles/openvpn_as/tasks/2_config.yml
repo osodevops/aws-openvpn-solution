@@ -1,0 +1,22 @@
+---
+
+  - name: Stop openvpnas server
+    systemd:
+      name: openvpnas
+      state: stopped
+    register: openvpn_stopped
+
+  - name: Update database settings
+    template:
+      src: as.j2
+      dest: /usr/local/openvpn_as/etc/as.conf
+      mode: 0644
+      owner: root
+    when: openvpn_stopped.changed
+    register: config_updated
+
+  - name: Start openvpnas server
+    systemd:
+      name: openvpnas
+      state: started
+    when: config_updated.changed

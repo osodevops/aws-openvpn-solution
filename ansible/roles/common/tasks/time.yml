@@ -1,0 +1,29 @@
+---
+
+  - name: Update time zone on server
+    template:
+      src: timezone.j2
+      dest: /etc/timezone
+      mode: 0644
+      owner: root
+    when: ansible_distribution == 'Ubuntu'
+
+  - name: Update time zone on server
+    lineinfile:
+      dest: /etc/sysconfig/clock
+      regexp: '^ZONE="UTC"'
+      line: '^ZONE="{{ timezone }}"'
+      state: present
+      backup: yes
+      mode: 0644
+      owner: root
+    when: ansible_distribution == 'Amazon'
+
+  - name: Link timezone to /etc/localtime
+    command: sudo ln -sf /usr/share/zoneinfo/{{ timezone }} /etc/localtime
+    when: ansible_distribution == 'Amazon'
+    register: timezone
+
+  - name: Restart instance
+    command: sudo reboot now
+    when: restart_server|bool == true

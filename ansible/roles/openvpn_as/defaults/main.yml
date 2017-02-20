@@ -1,0 +1,6 @@
+---
+
+config_db: true
+mysql_user: foo
+mysql_pass: bar
+database_url: foo.bar

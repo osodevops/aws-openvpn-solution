@@ -1,0 +1,9 @@
+---
+
+  - name: Set proxy env on server
+    template:
+      src: environment.j2
+      dest: /etc/environment
+      mode: 0644
+      owner: root
+    register: proxy_env

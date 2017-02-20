@@ -1,0 +1,28 @@
+---
+
+# This common role will either deploy on ubuntu or aws linux
+
+- name: Update Apt packages cache
+  apt:
+    update_cache: yes
+  when: ansible_distribution == 'Ubuntu'
+
+- name: Install common packages for Ubuntu
+  apt:
+    pkg: "{{ item }}"
+    state: latest
+  with_items:
+    - build-essential
+    - libpq-dev
+    - git
+  when: ansible_distribution == 'Ubuntu'
+
+- name: Install common packages Amazon
+  yum:
+    pkg: "{{ item }}"
+    state: latest
+  with_items:
+    - vim
+    - git
+    - '@development-tools'
+  when: ansible_distribution == 'Amazon'

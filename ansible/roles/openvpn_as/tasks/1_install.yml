@@ -1,0 +1,13 @@
+---
+
+  - name: Update Apt packages cache
+    apt:
+      update_cache: yes
+
+  - name: Install MySQL Client and other requirements
+    apt:
+      pkg: "{{ item }}"
+      state: latest
+    with_items:
+      - mysql-client
+      - libmysqlclient20

@@ -1,0 +1,24 @@
+---
+
+  - hosts: localhost
+    connection: local
+    become: true
+    user: root
+    gather_facts: yes
+    vars:
+      # Openvpn_as
+      config_db: false
+      mysql_user: --> set user <
+      mysql_pass: --> set password <
+      database_url: --> set url <
+      # Common
+      install_dev_tools: false
+      update_hostname: true
+      update_time_config: true
+      hostname: --> set hostname
+      timezone: Europe/London
+      server_restart: false
+      # Slack
+    roles:
+      - openvpn_as
+      - common
