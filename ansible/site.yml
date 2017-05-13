@@ -18,7 +18,14 @@
       hostname: --> set hostname
       timezone: Europe/London
       server_restart: false
-      # Slack
+      # Letsencrypt
+      letsencrypt_webroot_path: /var/www/html
+      letsencrypt_email: user@example.net
+      letsencrypt_cert_domains:
+        - www.example.net
+        - example.net
+      letsencrypt_renewal_command_args: '--renew-hook "systemctl restart nginx"'
     roles:
       - openvpn_as
       - common
+      - letsencrypt

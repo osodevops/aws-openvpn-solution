@@ -8,6 +8,7 @@ you to quickly spin up an ISO 27001 compliant VPN service.
 
 The OpenVPN Access Server can be selected from the AWS Marketplace with different license options, based on concurrent users and size of ec2 instance.
 
+![Architecture](aws-openvpn-example-solution-architecture.png)
 
 
 
