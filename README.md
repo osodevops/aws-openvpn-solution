@@ -8,6 +8,23 @@ you to quickly spin up an ISO 27001 compliant VPN service.
 
 The OpenVPN Access Server can be selected from the AWS Marketplace with different license options, based on concurrent users and size of ec2 instance.
 
+How does the VPN solution work?
+===============================
+
+The OpenVPN client establishes connection to the VPN server using the UDP protocol.
+The virtual tunnel is established with a dynamic ip from the following range: 172.16.223.0/24.
+Internet traffic is not tunneled over the VPN connection for security reasons, splitting the VPN tunnel traffic. 
+End user can only access internal servers & services on the private subnets, any other subnet or VPC is off-limits.
+The OpenVPN user access database controls the access privileges to the subnets, different rules can be applied to users.
+All config data is stored within the Mysql RDS instance. 
+Internal DNS domains are forwarded from Route 53 by OpenVPN, allowing the client to query AWS for internal domain resolution.
+
+### Please see the diagram below:
+![Architecture](aws-openvpn-example-solution-architecture.png)
+
+Notes from the diagram:
+* *The RDS Mysql database provides greater redundancy than the original file based SQlite database.*
+
 How to deploy
 =============
 
@@ -28,25 +45,7 @@ Post CF deployment tasks:
     3. Create users
 2. Migrate SQLite DB to RDS
 3. Restart application with the RDS connection enabled
-4. Deployment complete! 
+4. Deployment complete!
 
-How does the VPN solution work?
-===============================
-
-The OpenVPN client establishes connection to VPN server via UDP protocol.
-The virtual tunnel is established with a dynamic ip from the following range: 172.16.223.0/24.
-Internet traffic is not tunneled over the VPN connection. Hence this is a split VPN tunnel solution. 
-End user can only access internal servers & services on the private DevOps subnet, any other subnet or VPC is off-limits.
-OpenVPN user access database controls the access privileges to the subnets.
-All config data is stored within the Mysql RDS
-Internal DNS domains are forwarded from Route 53 by OpenVPN allowing the client to query internal domain resolution.
-
-### Please see the diagram below:
-![Architecture](aws-openvpn-example-solution-architecture.png)
-
-Notes from the diagram:
-* *The RDS Mysql database provides greater redundancy than the original file based SQlite database.*
-
-
-
-
+For more information on how to secure your AWS infrastructure.
+*Please contact us on: info@osodevops.io*
