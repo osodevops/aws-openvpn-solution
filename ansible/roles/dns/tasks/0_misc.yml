@@ -1,0 +1,24 @@
+---
+
+  - name: Install Python DNS library
+    apt:
+      name: "{{ item }}"
+      state: latest
+      update_cache: yes
+    with_items:
+      - python-dnspython
+    when: ansible_distribution == 'Ubuntu'
+
+  - name: Install boto for route53
+    pip:
+      name: boto
+    when: ansible_distribution == 'Ubuntu'
+
+  - name: Install Missing Python libraries
+    yum:
+      name: "{{ item}}"
+      state: latest
+    with_items:
+      - python26-dns.noarch
+      - python26-boto.noarch
+    when: ansible_distribution == 'Amazon'

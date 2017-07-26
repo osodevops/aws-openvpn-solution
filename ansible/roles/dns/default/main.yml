@@ -1,0 +1,21 @@
+---
+
+# Specify if you are running internally or externally
+route_53_internal: true
+route_53_external: false
+
+# Specify if you are installing reqiured packages or not
+install_packages: false
+
+# Settings for the internal DNS
+int_dns_zone: foo
+int_dns_record: bar
+int_dns_vpc: vpc-xxxxx
+int_dns_type: A
+int_dns_ttl: 60
+
+# Settings for the public DNS
+ext_dns_zone: foo
+ext_dns_record: bar
+ext_dns_type: A
+ext_dns_ttl: 300

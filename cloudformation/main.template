@@ -1,0 +1,179 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'Template deploys an OpenVPN solution'
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: 'Network Settings:'
+      Parameters:
+      - pEC2KeyPair
+      - pVPCName
+      - pAvailabilityZoneA
+      - pAvailabilityZoneB
+      - pPubSubnetA
+      - pPubSubnetB
+      - pPrivSubnetA
+      - pPrivSubnetB
+    - Label:
+        default: 'Application Settings:'
+      Parameters:
+      - pDBUser
+      - pDBPassword
+      - pVPNDomain
+    - Label:
+        default: 'Template Configuration:'
+      Parameters:
+      - QSS3BucketName
+      - QSS3KeyPrefix
+    ParameterLabels:
+      pVPCName:
+        default: VPC ID Name
+      pEC2KeyPair:
+        default: SSH Key for the instance
+      pAvailabilityZoneA:
+        default: First Availability Zone
+      pAvailabilityZoneB:
+        default: Second Availability zone
+      pPubSubnetA:
+        default: Public Subnet A
+      pPubSubnetB:
+        default: Public Subnet B
+      pPrivSubnetA:
+        default: Private Subnet A
+      pPrivSubnetB:
+        default: Private Subnet B
+      QSS3BucketName:
+        default: CloudFormation S3 Bucket Name
+      QSS3KeyPrefix:
+        default: CloudFormation S3 Key Prefix
+  Stack:
+    Value: 0
+  VersionDate:
+    Value: 20160518
+  Identifier:
+    Value: main
+  Input:
+    Description: Input of all required parameters in nested stacks
+  Output:
+    Description: N/A
+Parameters:
+  pVPCName:
+    Description: Select the VPC you wish to deploy OpenVPN in
+    Type: AWS::EC2::VPC::Id
+  pPubSubnetA:
+    Description: Set public subnet 1
+    Type: AWS::EC2::Subnet::Id
+  pPubSubnetB:
+    Description: Set public subnet 2
+    Type: AWS::EC2::Subnet::Id
+  pPrivSubnetA:
+    Description: Set private subnet 1
+    Type: AWS::EC2::Subnet::Id
+  pPrivSubnetB:
+    Description: Set private subnet 2
+    Type: AWS::EC2::Subnet::Id
+  pEC2KeyPair:
+    Description: The SSH key pair in your account to use for all other EC2 instance
+      logins
+    Type: AWS::EC2::KeyPair::KeyName
+  pAvailabilityZoneA:
+    Description: Availability Zone 1
+    Type: AWS::EC2::AvailabilityZone::Name
+  pAvailabilityZoneB:
+    Description: Availability Zone 2
+    Type: AWS::EC2::AvailabilityZone::Name
+  pDBUser:
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric
+      characters.
+    Description: Set the name for the database admin account
+    MaxLength: '16'
+    MinLength: '1'
+    NoEcho: true
+    Type: String
+  pDBPassword:
+    AllowedPattern: '[a-zA-Z0-9]*'
+    ConstraintDescription: must contain only alphanumeric characters.
+    Description: Set the password for the database admin user
+    MaxLength: '41'
+    MinLength: '1'
+    NoEcho: true
+    Type: String
+  pVPNDomain:
+    Default: vpn.local.server
+    Description: Set the name of the domain for the VPN server
+    Type: String
+  QSS3BucketName:
+    AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-.]*[0-9a-zA-Z])*$
+    ConstraintDescription: CloudFormation S3 bucket name can include numbers, lowercase
+      letters, uppercase letters, periods (.), and hyphens (-). It cannot start or
+      end with a hyphen (-).
+    Default: aws.example.bucket
+    Description: S3 bucket name for the CloudFormation assets.
+    Type: String
+  QSS3KeyPrefix:
+    AllowedPattern: ^[0-9a-zA-Z-]+(/[0-9a-zA-Z-]+)*$
+    ConstraintDescription: CloudFormation S3 key prefix can include numbers, lowercase letters,
+      uppercase letters, hyphens (-), and forward slash (/). It cannot start or end
+      with forward slash (/) because they are automatically appended.
+    Default: cloudformation
+    Description: S3 key prefix for the CloudFormation assets. CloudFormation key prefix
+      can include numbers, lowercase letters, uppercase letters, hyphens (-), and
+      forward slash (/). It cannot start or end with forward slash (/) because they
+      are automatically appended.
+    Type: String
+Mappings:
+  AWSInfoRegionMap:
+    us-east-1:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+    eu-central-1:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+    eu-west-1:
+      Partition: aws
+      QuickStartS3URL: https://s3-eu-west-1.amazonaws.com
+    eu-west-2:
+      Partition: aws
+      QuickStartS3URL: https://s3.amazonaws.com
+Resources:
+  RDSTemplate:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL:
+        !Sub
+        - ${QuickStartS3URL}/${QSS3BucketName}/${QSS3KeyPrefix}/child-templates/rds.template
+        - QuickStartS3URL:
+            !FindInMap
+            - AWSInfoRegionMap
+            - !Ref AWS::Region
+            - QuickStartS3URL
+      TimeoutInMinutes: 20
+      Parameters:
+        DBUser: !Ref pDBUser
+        DBPassword: !Ref pDBPassword
+        PrivateSubnet1: !Ref pPrivSubnetA
+        PrivateSubnet2: !Ref pPrivSubnetB
+        VpcId: !Ref pVPCName
+  ASGTemplate:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: RDSTemplate
+    Properties:
+      TemplateURL:
+        !Sub
+        - ${QuickStartS3URL}/${QSS3BucketName}/${QSS3KeyPrefix}/child-templates/asg.template
+        - QuickStartS3URL:
+            !FindInMap
+            - AWSInfoRegionMap
+            - !Ref AWS::Region
+            - QuickStartS3URL
+      TimeoutInMinutes: 20
+      Parameters:
+        KeyName: !Ref pEC2KeyPair
+        PublicSubnet1: !Ref pPubSubnetA
+        PublicSubnet2: !Ref pPubSubnetB
+        VPCAvailabilityZone1: !Ref pAvailabilityZoneA
+        VPCAvailabilityZone2: !Ref pAvailabilityZoneB
+        VpcId: !Ref pVPCName
+        VPNDomain: !Ref pVPNDomain

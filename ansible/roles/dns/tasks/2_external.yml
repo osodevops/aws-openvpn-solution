@@ -1,0 +1,23 @@
+---
+
+# External DNS
+- name: Update external DNS
+  route53:
+    command: create
+    overwrite: yes
+    private_zone: false
+    zone: "{{ ext_dns_zone }}"
+    record: "{{ ext_dns_record }}.{{ ext_dns_zone }}"
+    type: "{{ ext_dns_type }}"
+    ttl: "{{ ext_dns_ttl }}"
+    value: "{{ ansible_eth0.ipv4.address }}"
+  ignore_errors: yes
+
+- name: Wait for DNS to propogate
+  pause:
+    seconds: 10
+
+- name: Check DNS name
+  debug:
+    msg: "Check record {{ lookup('dig', '{{ ext_dns_record }}.{{ ext_dns_zone }}')}}"
+  ignore_errors: yes

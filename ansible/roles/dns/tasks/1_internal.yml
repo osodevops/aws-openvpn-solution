@@ -1,0 +1,24 @@
+---
+
+# Internal DNS
+- name: Update internal DNS
+  route53:
+    command: create
+    overwrite: yes
+    vpc_id: "{{ int_dns_vpc }}"
+    private_zone: true
+    zone: "{{ int_dns_zone }}"
+    record: "{{ int_dns_record }}.{{ int_dns_zone }}"
+    type: "{{ int_dns_type }}"
+    ttl: "{{ int_dns_ttl }}"
+    value: "{{ ansible_eth0.ipv4.address }}"
+  ignore_errors: yes
+
+- name: Wait for DNS to propogate
+  pause:
+    seconds: 10
+
+- name: Check DNS name
+  debug:
+    msg: "Check record {{ lookup('dig', '{{ int_dns_record }}.{{ int_dns_zone }}')}}"
+  ignore_errors: yes

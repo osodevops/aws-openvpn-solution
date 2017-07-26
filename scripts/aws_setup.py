@@ -1,5 +1,5 @@
 """
-Setup script to get the s3 buckets in place for troposphere automation
+Setup script to get the s3 buckets in place for deployments
 """
 
 import boto3
@@ -24,3 +24,4 @@ def create_s3_bucket(name):
         print ("No such bucket or %s is already in use" %(name))
 
 create_s3_bucket('%s' %(s3_bucket))
+

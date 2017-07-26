@@ -1,0 +1,10 @@
+---
+
+  - include: 0_misc.yml
+    when: install_packages
+
+  - include: 1_internal.yml
+    when: ( route_53_internal | bool )
+
+  - include: 2_external.yml
+    when: ( route_53_external | bool )

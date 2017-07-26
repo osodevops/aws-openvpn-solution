@@ -1,0 +1,115 @@
+Description: 'CloudFormation template which creates an RDS DBInstance for the OpenVPN stack'
+Parameters:
+  DBAllocatedStorage:
+    ConstraintDescription: must be between 5 and 1024Gb.
+    Default: '5'
+    Description: The size of the database (Gb)
+    MaxValue: '1024'
+    MinValue: '5'
+    Type: Number
+  DBClass:
+    AllowedValues:
+    - db.t2.micro
+    - db.t2.small
+    - db.t2.medium
+    - db.t2.large
+    - db.m1.small
+    - db.m1.large
+    - db.m1.xlarge
+    - db.m2.xlarge
+    - db.m2.2xlarge
+    - db.m2.4xlarge
+    ConstraintDescription: must select a valid database instance type.
+    Default: db.t2.small
+    Description: Database instance class
+    Type: String
+  DBName:
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric
+      characters.
+    Default: OpenVPNDatabase
+    Description: Set the OpenVPN database name
+    MaxLength: '64'
+    MinLength: '1'
+    Type: String
+  DBPassword:
+    AllowedPattern: '[a-zA-Z0-9]*'
+    ConstraintDescription: must contain only alphanumeric characters.
+    Description: Set the password for the database admin user
+    MaxLength: '41'
+    MinLength: '1'
+    NoEcho: true
+    Type: String
+  DBUser:
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric
+      characters.
+    Description: Set the name for the database admin account
+    MaxLength: '16'
+    MinLength: '1'
+    NoEcho: true
+    Type: String
+  PrivateSubnet1:
+    Description: Select a private subnet from the dropdown list.
+    Type: AWS::EC2::Subnet::Id
+  PrivateSubnet2:
+    Description: Select a private subnet from the dropdown list.
+    Type: AWS::EC2::Subnet::Id
+  VpcId:
+    Description: Select an existing VPC
+    Type: AWS::EC2::VPC::Id
+Resources:
+  MyDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets available for the RDS DB Instance
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+  Openvpndb:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage:
+        Ref: DBAllocatedStorage
+      DBInstanceClass:
+        Ref: DBClass
+      DBName:
+        Ref: DBName
+      DBSubnetGroupName:
+        Ref: MyDBSubnetGroup
+      Engine: MySQL
+      EngineVersion: 5.6.23
+      MasterUserPassword:
+        Ref: DBPassword
+      MasterUsername:
+        Ref: DBUser
+      Tags:
+      - Key: Name
+        Value: OpenVpn-db
+      - Key: ApplicationStack
+        Value: OpenVPN
+      - Key: Type
+        Value: database
+      VPCSecurityGroups:
+      - Ref: myVPCSecurityGroup
+  myVPCSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for RDS DB Instance.
+      VpcId:
+        Ref: VpcId
+Outputs:
+  JDBCConnectionString:
+    Description: JDBC connection string for database
+    Value:
+      Fn::Join:
+      - ''
+      - - jdbc:mysql://
+        - Fn::GetAtt:
+          - Openvpndb
+          - Endpoint.Address
+        - Fn::GetAtt:
+          - Openvpndb
+          - Endpoint.Port
+        - /
+        - Ref: DBName

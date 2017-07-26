@@ -1,0 +1,196 @@
+Description: 'Configures auto scaling group for OpenVPN stack'
+Parameters:
+  AmiId:
+    Default: ami-238b6a5a
+    Description: The AMI id for the OpenVpn ready to deploy instance
+    Type: String
+  KeyName:
+    AllowedPattern: '[ -~]*'
+    ConstraintDescription: can contain only ASCII characters.
+    Default: devops-openvpn-key
+    Description: Name of an existing EC2 KeyPair to enable SSH access
+    MaxLength: '255'
+    MinLength: '1'
+    Type: String
+  PublicSubnet1:
+    Description: Select a public subnet from the dropdown list.
+    Type: AWS::EC2::Subnet::Id
+  PublicSubnet2:
+    Description: Select a public subnet from the dropdown list.
+    Type: AWS::EC2::Subnet::Id
+  VPCAvailabilityZone1:
+    Description: Availability Zone 1
+    Type: AWS::EC2::AvailabilityZone::Name
+  VPCAvailabilityZone2:
+    Description: Availability Zone 2
+    Type: AWS::EC2::AvailabilityZone::Name
+  VpcId:
+    Description: Select an existing VPC
+    Type: AWS::EC2::VPC::Id
+  VPNDomain:
+    Default: vpn.local.server
+    Description: Set the name of the domain for the VPN server
+    Type: String
+Resources:
+  AutoscalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AvailabilityZones:
+        - !Ref VPCAvailabilityZone1
+        - !Ref VPCAvailabilityZone2
+      DesiredCapacity: '1'
+      HealthCheckGracePeriod: 45
+      HealthCheckType: EC2
+      LaunchConfigurationName:
+        Ref: LaunchConfiguration
+      MaxSize: '1'
+      MinSize: '1'
+      Tags:
+      - Key: Name
+        PropagateAtLaunch: true
+        Value: OpenVPN-AutoScalingGroup-Instance
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+    UpdatePolicy:
+      AutoScalingReplacingUpdate:
+        WillReplace: 'true'
+      AutoScalingRollingUpdate:
+        MaxBatchSize: '1'
+        MinInstancesInService: '0'
+        PauseTime: PT5M
+        WaitOnResourceSignals: 'true'
+  LaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          packages:
+            apt:
+              mysql-client: []
+              libmysqlclient20: []
+              letsencrypt: []
+          commands:
+            dir:
+              command: "mkdir -p /opt/scripts"
+          commands:
+            cron1:
+              command: "(crontab -l && echo '30 19 01 Jan,Apr,Jul,Oct * systemctl stop openvpnas') | crontab -"
+          commands:
+            cron2:
+              command: "(crontab -l && echo '33 19 01 Jan,Apr,Jul,Oct * letsencrypt certonly --standalone -d $VPNDomain') | crontab -"
+          commands:
+            cron3:
+              command: "(crontab -l && echo '35 19 01 Jan,Apr,Jul,Oct * systemctl start openvpnas') | crontab -"
+          files:
+            /ops/scripts/migration.sh:
+              content: !Sub |
+                #!/usr/bin/env bash
+
+                set -e
+
+                usage() {
+                  echo "Usage: script.sh $1 $2 $3"
+                  echo " e.g.: db_url db_user db_pass"
+                  echo " "
+                  exit 1
+                }
+
+                if [ -z "$1" ];then
+                  usage
+                fi
+
+                DB=$1
+                USER=$2
+                PASS=$3
+
+                if [ $(dpkg-query -W -f='${Status}' mysql 2>/dev/null | grep -c "ok installed") -eq 0 ];
+                then
+                  apt-get install mysql-client libmysqlclient20;
+                fi
+
+                echo "Create databases"
+                mysql -h $DB -u $USER -p $PASS -e "create database as_certs;";
+                mysql -h $DB -u $USER -p $PASS -e "create database as_config;";
+                mysql -h $DB -u $USER -p $PASS -e "create database as_log;";
+                mysql -h $DB -u $USER -p $PASS -e "create database as_userprop;";
+
+                echo "Import web certificates"
+                cd /usr/local/openvpn_as/scripts
+                ./sacli --import GetActiveWebCerts
+
+                systemctl stop openvpnas
+
+                cd /usr/local/openvpn_as/scripts
+
+                echo "Start migration to RDS"
+                echo " "
+
+                ./dbcvt -t certs -s sqlite:////usr/local/openvpn_as/etc/db/certs.db -d mysql://$USER:$PASS@$DB/as_certs
+                echo "Certs migration complete!"
+                ./dbcvt -t config -s sqlite:////usr/local/openvpn_as/etc/db/config.db -d mysql://$USER:$PASS@$DB/as_config
+                echo "Config migration complete!"
+                ./dbcvt -t log -s sqlite:////usr/local/openvpn_as/etc/db/log.db -d mysql://$USER:$PASS@$DB/as_log
+                echo "Log migration complete!"
+                ./dbcvt -t user_prop -s sqlite:////usr/local/openvpn_as/etc/db/userprop.db -d mysql://$USER:$PASS@$DB/as_userprop
+                echo "User migration complete!"
+
+                echo " "
+                echo "Starting OpenVPN again"
+
+                systemctl start openvpnas
+
+                echo "Script complete!"
+              mode: "000755"
+              group: "root"
+              owner: "root"
+    Properties:
+      IamInstanceProfile: openvpn_s3_read_only
+      ImageId:
+        Ref: AmiId
+      InstanceType: t2.small
+      KeyName:
+        Ref: KeyName
+      SecurityGroups:
+      - Ref: OpenVpnSecurityGroup
+      UserData:
+        "Fn::Base64":
+          !Sub |
+            #!/bin/bash
+
+            apt-get update -y
+            apt-get install mysql-client ansible awscli -y
+
+            ### If you want to use Ansible during the deployment then use this example:
+            #aws s3 cp s3://openvpn.example/ansible /opt/ansible --recursive --region eu-west-1
+
+            #ansible-playbook -i localhost /opt/ansible/site.yml -v
+  OpenVpnSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: OpenVpn ports with recommended settings
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        FromPort: '443'
+        IpProtocol: tcp
+        ToPort: '443'
+      - CidrIp: 0.0.0.0/0
+        FromPort: '943'
+        IpProtocol: tcp
+        ToPort: '943'
+      - CidrIp: 0.0.0.0/0
+        FromPort: '1194'
+        IpProtocol: udp
+        ToPort: '1194'
+      VpcId:
+        Ref: VpcId
+Outputs:
+  InstanceName:
+    Description: EC2 instance name
+    Value: !Ref EC2Instance
+  PublicDNSName:
+    Description: DNS Name of the newly created EC2 instance
+    Value:
+      Fn::GetAtt:
+      - EC2Instance
+      - PublicDnsName
